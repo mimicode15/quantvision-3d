@@ -9,3 +9,5 @@ __pycache__/
 .env.*
 !.env.example
 .DS_Store
+frontend/public/mediapipe/
+frontend/public/models/*.task

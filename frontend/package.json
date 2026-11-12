@@ -9,7 +9,9 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "typecheck": "tsc --noEmit",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "setup-vision": "node scripts/fetch-vision-assets.mjs",
+    "prebuild": "npm run setup-vision"
   },
   "author": "",
   "license": "ISC",

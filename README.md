@@ -25,3 +25,7 @@ Run `uvicorn main:app --reload` in `backend/`, then open http://127.0.0.1:8000/d
 | `POST /gates/apply` | Apply a sequence of gates; returns the final state and a Bloch-vector trace |
 | `POST /noise/parameters` | T1/T2 decay parameters (gamma, lambda, surviving population and coherence) |
 | `POST /noise/evolve` | The mixed state after a time t of T1/T2 noise |
+
+## Hand tracking files
+The MediaPipe wasm runtime and hand model are not committed. After `npm install`, run
+`cd frontend && npm run setup-vision` once (it also runs before `npm run build`).
