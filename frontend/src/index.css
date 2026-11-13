@@ -561,3 +561,113 @@ body::before {
     font-size: 10px;
   }
 }
+
+/* ---------- math HUD (Day 6) ---------- */
+.qv-hud__math {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.qv-hud__dirac {
+  min-height: 2.2em;
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+
+.qv-hud__rho {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
+
+.qv-hud .katex-display {
+  margin: 2px 0;
+}
+
+/* Numbers use KaTeX's monospace class; point it at Syne Mono so the columns line up. */
+.qv-hud .katex .mathtt {
+  font-family: var(--font-mono), "KaTeX_Typewriter", monospace;
+}
+
+.qv-hud__general {
+  margin: 0 0 10px;
+  overflow-x: auto;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.qv-hud__probs {
+  display: grid;
+  gap: 4px;
+}
+
+.qv-hud__prob {
+  display: grid;
+  grid-template-columns: 34px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.qv-hud__prob-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.qv-hud__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(168 218 220 / 0.5);
+}
+
+.qv-hud__bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--color-violet-vector);
+}
+
+.qv-hud__purity {
+  margin: 4px 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Short screens: let the dock scroll instead of running under the header. */
+.qv-dock {
+  grid-template-columns: minmax(0, 1fr); /* wide formulas must not stretch the column */
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+/* Phones: the page scrolls, the sphere keeps a comfortable height, the dock sits below. */
+@media (max-width: 719px) {
+  body {
+    overflow-y: auto;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .qv-app {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-rows: auto auto auto;
+  }
+
+  .qv-stage {
+    height: min(62dvh, 520px);
+    min-height: 340px;
+  }
+
+  .qv-dock {
+    max-height: none;
+    overflow: visible;
+  }
+}

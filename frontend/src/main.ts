@@ -1,5 +1,6 @@
 import "@fontsource/michroma";
 import "@fontsource/syne-mono";
+import "katex/dist/katex.min.css";
 import "./index.css";
 import { createLayout, startApp, type SceneLike } from "./app";
 import { BlochScene } from "./scene/BlochScene";

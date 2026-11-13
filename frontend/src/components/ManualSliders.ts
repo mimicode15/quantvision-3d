@@ -51,6 +51,7 @@ function sliderRow(id: string, symbol: string, name: string, max: number): Slide
   input.value = "0";
   input.setAttribute("aria-label", `${name} in degrees`);
   const output = make("output", "qv-row__value", "0.0°");
+  output.setAttribute("aria-live", "off"); // <output> is a live region by default; gestures would flood screen readers
   output.htmlFor = id;
   row.append(label, input, output);
   return { row, input, output };
@@ -105,18 +106,26 @@ export class ManualSliders {
   /** Move the sliders without firing events. Pass phi = null to leave φ where it is (poles). */
   setAngles(thetaRad: number, phiRad: number | null): void {
     this.theta.input.value = String(thetaRad * DEG);
-    this.theta.output.textContent = `${(thetaRad * DEG).toFixed(1)}°`;
+    this.describe(this.theta);
     if (phiRad !== null) {
       this.phi.input.value = String(phiRad * DEG);
-      this.phi.output.textContent = `${(phiRad * DEG).toFixed(1)}°`;
+      this.describe(this.phi);
     }
   }
 
   private emitAngles(): void {
-    const theta = this.theta.input.valueAsNumber;
-    const phi = this.phi.input.valueAsNumber;
-    this.theta.output.textContent = `${theta.toFixed(1)}°`;
-    this.phi.output.textContent = `${phi.toFixed(1)}°`;
-    this.handlers.onAngles(theta / DEG, phi / DEG);
+    this.describe(this.theta);
+    this.describe(this.phi);
+    this.handlers.onAngles(
+      this.theta.input.valueAsNumber / DEG,
+      this.phi.input.valueAsNumber / DEG,
+    );
+  }
+
+  /** Keeps the visible value and the screen-reader value in step with the slider. */
+  private describe(slider: SliderRow): void {
+    const degrees = slider.input.valueAsNumber;
+    slider.output.textContent = `${degrees.toFixed(1)}°`;
+    slider.input.setAttribute("aria-valuetext", `${degrees.toFixed(1)} degrees`);
   }
 }

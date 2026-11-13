@@ -1,5 +1,5 @@
 import { ManualSliders } from "./components/ManualSliders";
-import { Readout } from "./components/Readout";
+import { MathHUD } from "./components/MathHUD";
 import {
   GATES,
   anglesFromState,
@@ -56,7 +56,7 @@ export interface AppHandle {
 export function startApp(dock: HTMLElement, scene: SceneLike): AppHandle {
   let state: Vec2 = zeroState();
   let phiMemory = 0; // azimuth is undefined at the poles, so remember the last real one
-  const readout = new Readout();
+  const hud = new MathHUD();
 
   const apply = (
     next: Vec2,
@@ -68,7 +68,7 @@ export function startApp(dock: HTMLElement, scene: SceneLike): AppHandle {
     if (options.phi !== undefined) phiMemory = options.phi;
     else if (!atPole) phiMemory = phi;
     scene.setTarget(blochVector(state));
-    readout.show(state, options.note ?? "");
+    hud.show(state, options.note ?? "");
     if (options.syncSliders !== false) {
       tray.setAngles(theta, options.phi ?? (atPole ? null : phi));
     }
@@ -86,9 +86,9 @@ export function startApp(dock: HTMLElement, scene: SceneLike): AppHandle {
     onMeasure: () => collapse(),
   });
 
-  dock.append(readout.element, tray.element);
+  dock.append(hud.element, tray.element);
   scene.snapTo(blochVector(state));
-  readout.show(state);
+  hud.show(state);
   tray.setAngles(0, 0);
 
   return {
