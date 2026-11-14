@@ -1,6 +1,7 @@
 # QuantVision (qv3d)
 
 [![Backend tests](https://github.com/mimicode15/quantvision-3d/actions/workflows/test-backend.yml/badge.svg)](https://github.com/mimicode15/quantvision-3d/actions/workflows/test-backend.yml)
+[![Frontend checks](https://github.com/mimicode15/quantvision-3d/actions/workflows/test-frontend.yml/badge.svg)](https://github.com/mimicode15/quantvision-3d/actions/workflows/test-frontend.yml)
 
 Gesture-driven 3D Bloch sphere visualizer with a decoherence "Hardware Reality Check".
 Status: day 0, scaffolding only.

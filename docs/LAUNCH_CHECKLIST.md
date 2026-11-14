@@ -29,7 +29,7 @@ Physics (the part people will quote):
 - [ ] Every gate matches Qiskit for the six basis/equator states and 100 random states (Python tests exist; extend the shared fixtures to density matrices and noise).
 - [ ] The browser (TypeScript) and Python agree to 1e-9 on the same fixtures, including after gate chains.
 - [ ] Conventions are explicit in the docs and match Qiskit: |0> at the north pole, |+> on +x, |+i> on +y, phi counter-clockwise from +x.
-- [ ] Noise limits hold: T1 only drives z toward +1 (never below), T2 only shrinks x and y, T2 <= 2 T1 is enforced, purity never increases, long time gives |0><0| for T1.
+- [ ] Noise limits hold: T1 moves z toward +1 and never overshoots it, T2 only shrinks x and y, T2 <= 2 T1 is enforced, purity stays between 1/2 and 1, long time gives |0><0| for T1. Purity never increases with T2 alone, but under T1 it can dip and then recover for states that start in the lower half.
 - [ ] The needle length is sqrt(2 purity - 1) in the scene, checked against the HUD's purity.
 - [ ] Measurement statistics: 10,000 measurements of a state with P(0) = 0.75 land within a few percent.
 

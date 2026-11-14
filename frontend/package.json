@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test:watch": "vitest",
     "setup-vision": "node scripts/fetch-vision-assets.mjs",
-    "prebuild": "npm run setup-vision"
+    "prebuild": "npm run setup-vision",
+    "check-format": "prettier --check src"
   },
   "author": "",
   "license": "ISC",

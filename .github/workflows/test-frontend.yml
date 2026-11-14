@@ -1,0 +1,43 @@
+name: Frontend checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/test-frontend.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/test-frontend.yml"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check-format
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --run
+      # The hand model (~8 MB) is downloaded once, then reused between runs.
+      - uses: actions/cache@v4
+        with:
+          path: frontend/public/models
+          key: hand-model-${{ hashFiles('frontend/scripts/fetch-vision-assets.mjs') }}
+      - run: npm run build
+      - name: Bundle sizes
+        run: |
+          du -sh dist
+          ls -lh dist/assets | sort -k5 -h | tail -8
+      # Day 9: add a Playwright smoke test job here (fake camera, pinch, measure, camera denied).
