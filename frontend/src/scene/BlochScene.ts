@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Vec3 } from "../math/quantum";
 import { StateAnimator } from "./animator";
+import { GhostVector } from "./GhostVector";
 import { SphereMesh } from "./SphereMesh";
 import { StateVector } from "./StateVector";
 
@@ -32,6 +33,9 @@ export class BlochScene {
   private readonly controls: OrbitControls;
   private readonly sphere: SphereMesh;
   private readonly vector = new StateVector();
+  private readonly ghost = new GhostVector();
+  private readonly ghostAnimator: StateAnimator;
+  private ghostShown = false;
   private readonly animator: StateAnimator;
   private readonly resizeObserver: ResizeObserver;
   private readonly container: HTMLElement;
@@ -50,6 +54,10 @@ export class BlochScene {
       this.motionQuery.matches ? REDUCED_MOTION_OMEGA : NORMAL_OMEGA,
     );
 
+    this.ghostAnimator = new StateAnimator(
+      this.motionQuery.matches ? REDUCED_MOTION_OMEGA : NORMAL_OMEGA,
+    );
+
     // alpha: true lets the cream page background (and its paper grain) show through
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setClearColor(0x000000, 0);
@@ -60,7 +68,7 @@ export class BlochScene {
     canvas.setAttribute("aria-label", "Interactive Bloch sphere showing the qubit state");
     container.appendChild(canvas);
 
-    this.scene.add(this.sphere.group, this.vector.group);
+    this.scene.add(this.sphere.group, this.vector.group, this.ghost.group);
 
     // Camera looks at the sphere from the front-left and slightly above, like a textbook figure.
     this.camera.position.set(4.25, 1.98, 2.46);
@@ -87,6 +95,13 @@ export class BlochScene {
     this.animator.setTarget(v);
   }
 
+  /** Faint marker for the noise-free state. null hides it. */
+  setGhost(v: Vec3 | null): void {
+    if (v && !this.ghostShown) this.ghostAnimator.snapTo(v);
+    else if (v) this.ghostAnimator.setTarget(v);
+    this.ghostShown = v !== null;
+  }
+
   /** Jump straight to a Bloch vector without animating. */
   snapTo(v: Vec3): void {
     this.animator.snapTo(v);
@@ -103,7 +118,9 @@ export class BlochScene {
   }
 
   private readonly onMotionPreference = (): void => {
-    this.animator.setOmega(this.motionQuery.matches ? REDUCED_MOTION_OMEGA : NORMAL_OMEGA);
+    const omega = this.motionQuery.matches ? REDUCED_MOTION_OMEGA : NORMAL_OMEGA;
+    this.animator.setOmega(omega);
+    this.ghostAnimator.setOmega(omega);
   };
 
   private readonly resize = (): void => {
@@ -121,7 +138,9 @@ export class BlochScene {
     const dt = Math.min((now - this.last) / 1000, 0.05);
     this.last = now;
     this.animator.step(dt);
+    this.ghostAnimator.step(dt);
     this.vector.update(this.animator.bloch, this.animator.phi);
+    this.ghost.update(this.ghostShown ? this.ghostAnimator.bloch : null);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.frameId = requestAnimationFrame(this.frame);

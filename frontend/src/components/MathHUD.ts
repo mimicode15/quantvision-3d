@@ -6,9 +6,11 @@ import {
   probabilities,
   purity,
 } from "../math/hud";
-import { anglesFromState, blochVector, type Vec2 } from "../math/quantum";
+import { densityFromBloch } from "../math/decoherence";
+import { anglesFromState, blochVector, type Mat2, type Vec2, type Vec3 } from "../math/quantum";
 
 const DEG = 180 / Math.PI;
+const MIXED_TEX = "\\text{mixed state: no single ket}";
 
 const signed = (n: number): string => {
   const clean = Math.abs(n) < 5e-4 ? 0 : n;
@@ -126,13 +128,33 @@ export class MathHUD {
   }
 
   show(state: Vec2, note = ""): void {
-    const rho = densityMatrix(state);
     const [theta, phi] = anglesFromState(state);
-    const [x, y, z] = blochVector(state);
+    this.render(densityMatrix(state), blochVector(state), theta, phi, diracTex(state), note);
+  }
+
+  /** A mixed state has no single ket, so show its density matrix and Bloch vector instead. */
+  showMixed(bloch: Vec3, note = ""): void {
+    const [x, y, z] = bloch;
+    const length = Math.hypot(x, y, z);
+    const theta = Math.acos(Math.min(1, Math.max(-1, z / (length || 1))));
+    const phi = (Math.atan2(y, x) + 2 * Math.PI) % (2 * Math.PI);
+    this.render(densityFromBloch(bloch), bloch, theta, phi, MIXED_TEX, note, length < 1e-6);
+  }
+
+  private render(
+    rho: Mat2,
+    bloch: Vec3,
+    theta: number,
+    phi: number,
+    ketTex: string,
+    note: string,
+    noDirection = false,
+  ): void {
+    const [x, y, z] = bloch;
     const [p0, p1] = probabilities(rho);
     const pure = purity(rho);
 
-    this.setMath(this.dirac, diracTex(state));
+    this.setMath(this.dirac, ketTex);
     this.setMath(this.rho, densityTex(rho), true);
 
     [p0, p1].forEach((p, i) => {
@@ -143,8 +165,8 @@ export class MathHUD {
     this.purityValue.textContent = pure.toFixed(3);
     this.purityLabel.textContent = pure > 1 - 1e-9 ? "pure" : "mixed";
 
-    this.cells.theta.textContent = `${(theta * DEG).toFixed(1)}°`;
-    this.cells.phi.textContent = `${(phi * DEG).toFixed(1)}°`;
+    this.cells.theta.textContent = noDirection ? "–" : `${(theta * DEG).toFixed(1)}°`;
+    this.cells.phi.textContent = noDirection ? "–" : `${(phi * DEG).toFixed(1)}°`;
     this.cells.p0.textContent = p0.toFixed(3);
     this.cells.x.textContent = signed(x);
     this.cells.y.textContent = signed(y);
