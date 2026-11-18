@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Vec3 } from "../math/quantum";
+import { FrameStats } from "../perf/FrameStats";
+import { timed } from "../perf/marks";
+import { QualityGovernor } from "../perf/QualityGovernor";
+import { RenderGate } from "../perf/RenderGate";
 import { StateAnimator } from "./animator";
 import { GhostVector } from "./GhostVector";
 import { SphereMesh } from "./SphereMesh";
@@ -42,6 +46,13 @@ export class BlochScene {
   private readonly motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   private frameId = 0;
   private last = performance.now();
+  private readonly gate = new RenderGate();
+  private readonly governor = new QualityGovernor(Math.min(window.devicePixelRatio, 2));
+  private contextLost = false;
+  private contextListener: ((state: "lost" | "restored") => void) | null = null;
+
+  /** Recent frame times, for the ?perf overlay. */
+  readonly stats = new FrameStats();
 
   static async create(container: HTMLElement): Promise<BlochScene> {
     return new BlochScene(container, await SphereMesh.create());
@@ -61,11 +72,13 @@ export class BlochScene {
     // alpha: true lets the cream page background (and its paper grain) show through
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.governor.pixelRatio);
     const canvas = this.renderer.domElement;
     canvas.className = "qv-canvas";
     canvas.setAttribute("role", "img");
     canvas.setAttribute("aria-label", "Interactive Bloch sphere showing the qubit state");
+    canvas.addEventListener("webglcontextlost", this.onContextLost);
+    canvas.addEventListener("webglcontextrestored", this.onContextRestored);
     container.appendChild(canvas);
 
     this.scene.add(this.sphere.group, this.vector.group, this.ghost.group);
@@ -90,9 +103,19 @@ export class BlochScene {
     this.frameId = requestAnimationFrame(this.frame);
   }
 
+  get pixelRatio(): number {
+    return this.governor.pixelRatio;
+  }
+
+  /** Called when the browser takes the graphics context away and when it gives it back. */
+  onContextChange(listener: (state: "lost" | "restored") => void): void {
+    this.contextListener = listener;
+  }
+
   /** Animate the needle to a new Bloch vector (x, y, z). Length < 1 means a mixed state. */
   setTarget(v: Vec3): void {
     this.animator.setTarget(v);
+    this.gate.invalidate();
   }
 
   /** Faint marker for the noise-free state. null hides it. */
@@ -100,22 +123,39 @@ export class BlochScene {
     if (v && !this.ghostShown) this.ghostAnimator.snapTo(v);
     else if (v) this.ghostAnimator.setTarget(v);
     this.ghostShown = v !== null;
+    this.gate.invalidate();
   }
 
   /** Jump straight to a Bloch vector without animating. */
   snapTo(v: Vec3): void {
     this.animator.snapTo(v);
+    this.gate.invalidate();
   }
 
   dispose(): void {
     cancelAnimationFrame(this.frameId);
     this.resizeObserver.disconnect();
     this.motionQuery.removeEventListener("change", this.onMotionPreference);
+    const canvas = this.renderer.domElement;
+    canvas.removeEventListener("webglcontextlost", this.onContextLost);
+    canvas.removeEventListener("webglcontextrestored", this.onContextRestored);
     this.controls.dispose();
     disposeTree(this.scene);
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
+
+  private readonly onContextLost = (event: Event): void => {
+    event.preventDefault(); // without this the browser never tries to restore it
+    this.contextLost = true;
+    this.contextListener?.("lost");
+  };
+
+  private readonly onContextRestored = (): void => {
+    this.contextLost = false;
+    this.gate.invalidate();
+    this.contextListener?.("restored");
+  };
 
   private readonly onMotionPreference = (): void => {
     const omega = this.motionQuery.matches ? REDUCED_MOTION_OMEGA : NORMAL_OMEGA;
@@ -127,7 +167,8 @@ export class BlochScene {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     if (width === 0 || height === 0) return;
-    this.renderer.setSize(width, height, false);
+    this.renderer.setSize(width, height, false); // clears the canvas, so draw again
+    this.gate.invalidate();
     this.camera.aspect = width / height;
     // On narrow screens pull back so the whole sphere and its labels still fit.
     this.camera.zoom = Math.min(1, this.camera.aspect);
@@ -135,14 +176,37 @@ export class BlochScene {
   };
 
   private readonly frame = (now: number): void => {
-    const dt = Math.min((now - this.last) / 1000, 0.05);
+    const elapsed = now - this.last;
+    const dt = Math.min(elapsed / 1000, 0.05);
     this.last = now;
-    this.animator.step(dt);
-    this.ghostAnimator.step(dt);
-    this.vector.update(this.animator.bloch, this.animator.phi);
-    this.ghost.update(this.ghostShown ? this.ghostAnimator.bloch : null);
-    this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    // a long gap means the tab was in the background, which says nothing about speed
+    if (elapsed < 250) this.stats.add(elapsed);
+
+    const moving = timed("update", () => {
+      this.animator.step(dt);
+      this.ghostAnimator.step(dt);
+      this.vector.update(this.animator.bloch, this.animator.phi);
+      this.ghost.update(this.ghostShown ? this.ghostAnimator.bloch : null);
+      const orbiting = this.controls.update();
+      const ghostMoving = this.ghostShown && !this.ghostAnimator.settled;
+      return orbiting || !this.animator.settled || ghostMoving;
+    });
+
+    // Nothing moved: skip the draw and leave the GPU to the hand tracker.
+    if (!this.contextLost && this.gate.shouldRender(moving)) {
+      timed("render", () => this.renderer.render(this.scene, this.camera));
+    }
+
+    if (moving && this.stats.count >= 30) {
+      const ratio = this.governor.update(now, this.stats.fps);
+      if (ratio !== null) {
+        this.renderer.setPixelRatio(ratio);
+        this.stats.reset();
+        this.resize();
+      }
+    } else {
+      this.governor.idle();
+    }
     this.frameId = requestAnimationFrame(this.frame);
   };
 }

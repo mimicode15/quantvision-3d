@@ -17,8 +17,9 @@ export interface VisionHandle {
 export function startVision(stage: HTMLElement, deps: VisionDeps = {}): VisionHandle {
   const panel = new CameraPanel({
     onToggle: () => {
-      if (pipeline.status.state === "running") pipeline.stop();
-      else void pipeline.start();
+      const { state } = pipeline.status;
+      if (state === "idle" || state === "error") void pipeline.start();
+      else pipeline.stop(); // running, or Cancel while it's still starting
     },
   });
   const pipeline = new VisionPipeline({

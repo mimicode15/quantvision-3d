@@ -1,6 +1,7 @@
 import type { HandLandmarker } from "@mediapipe/tasks-vision";
 import { VisionError } from "./errors";
 import { parseHandResult, type HandFrame } from "./parse";
+import { withTimeout } from "./timeout";
 
 /** What the pipeline needs from a tracker. HandTracker implements it; tests pass a fake. */
 export interface TrackerLike {
@@ -17,6 +18,8 @@ export interface HandTrackerOptions {
 }
 
 const HAVE_CURRENT_DATA = 2;
+const CHECK_TIMEOUT_MS = 10_000;
+const LOAD_TIMEOUT_MS = 45_000;
 const SETUP_HINT = "Run `npm run setup-vision` in the frontend folder, then reload.";
 
 /**
@@ -26,11 +29,17 @@ const SETUP_HINT = "Run `npm run setup-vision` in the frontend folder, then relo
 export async function checkAsset(url: string, fetchImpl: typeof fetch = fetch): Promise<void> {
   let response: Response;
   try {
-    response = await fetchImpl(url, { method: "HEAD" });
+    response = await withTimeout(
+      fetchImpl(url, { method: "HEAD" }),
+      CHECK_TIMEOUT_MS,
+      () => new Error("timed out"),
+    );
   } catch (error) {
-    throw new VisionError("tracker-failed", "Couldn't load the hand tracking model.", {
-      cause: error,
-    });
+    throw new VisionError(
+      "tracker-failed",
+      "Couldn't load the hand tracking model. Check your connection and try again.",
+      { cause: error },
+    );
   }
   const type = response.headers.get("content-type") ?? "";
   if (!response.ok || type.includes("text/html")) {
@@ -55,8 +64,7 @@ export class HandTracker implements TrackerLike {
 
     await checkAsset(modelUrl);
 
-    let landmarker: HandLandmarker;
-    try {
+    const load = async (): Promise<HandLandmarker> => {
       const { FilesetResolver, HandLandmarker: Landmarker } =
         await import("@mediapipe/tasks-vision");
       const fileset = await FilesetResolver.forVisionTasks(wasmBase);
@@ -70,11 +78,28 @@ export class HandTracker implements TrackerLike {
           minTrackingConfidence: 0.5,
         });
       try {
-        landmarker = await build("GPU");
+        return await build("GPU");
       } catch {
-        landmarker = await build("CPU"); // some browsers/GPUs can't run the GPU delegate
+        return await build("CPU"); // some browsers/GPUs can't run the GPU delegate
       }
+    };
+
+    const loading = load();
+    let landmarker: HandLandmarker;
+    try {
+      landmarker = await withTimeout(
+        loading,
+        LOAD_TIMEOUT_MS,
+        () =>
+          new VisionError(
+            "tracker-failed",
+            "Hand tracking took too long to load. Check your connection and try again.",
+          ),
+      );
     } catch (error) {
+      // if it finishes after we gave up, don't leave it running
+      loading.then((late) => late.close()).catch(() => {});
+      if (error instanceof VisionError) throw error;
       throw new VisionError("tracker-failed", "Hand tracking couldn't start in this browser.", {
         cause: error,
       });

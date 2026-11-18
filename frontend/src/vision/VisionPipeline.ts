@@ -1,3 +1,5 @@
+import { timed } from "../perf/marks";
+import { DetectBudget } from "./DetectBudget";
 import { VisionError, type VisionErrorKind } from "./errors";
 import type { CameraLike, CameraSize } from "./CameraManager";
 import type { TrackerLike } from "./HandTracker";
@@ -41,6 +43,8 @@ export interface PipelineDeps {
   camera: CameraLike;
   createTracker: () => Promise<TrackerLike>;
   scheduler?: FrameScheduler;
+  /** Clock in ms for timing detection. Tests pass a fake. */
+  now?: () => number;
 }
 
 type StatusListener = (status: VisionStatus) => void;
@@ -56,6 +60,8 @@ export class VisionPipeline {
   private tracker: TrackerLike | null = null;
   private handle: number | null = null;
   private readonly fpsMeter = new FpsMeter();
+  private readonly budget = new DetectBudget();
+  private lastDetectAt = -Infinity;
   private readonly statusListeners = new Set<StatusListener>();
   private readonly frameListeners = new Set<FrameListener>();
   private readonly deps: PipelineDeps;
@@ -72,6 +78,11 @@ export class VisionPipeline {
 
   get fps(): number {
     return this.fpsMeter.fps;
+  }
+
+  /** Average time one hand detection takes, in ms. */
+  get detectMs(): number {
+    return this.budget.averageMs;
   }
 
   onStatus(listener: StatusListener): () => void {
@@ -105,6 +116,8 @@ export class VisionPipeline {
       }
       this.tracker = tracker;
       this.fpsMeter.reset();
+      this.budget.reset();
+      this.lastDetectAt = -Infinity;
       this.set({ state: "running", size });
       this.scheduler ??= createFrameScheduler(this.deps.video);
       this.schedule(run);
@@ -126,9 +139,18 @@ export class VisionPipeline {
       this.handle = null;
       const tracker = this.tracker;
       if (run !== this.run || !tracker) return;
+      // detection has been slow: leave a gap so the page can keep drawing
+      if (nowMs - this.lastDetectAt < this.budget.intervalMs) {
+        this.schedule(run);
+        return;
+      }
       try {
-        const frame = tracker.detect(this.deps.video, nowMs);
+        const clock = this.deps.now ?? (() => performance.now());
+        const started = clock();
+        const frame = timed("detect", () => tracker.detect(this.deps.video, nowMs));
         if (frame) {
+          this.budget.record(clock() - started);
+          this.lastDetectAt = nowMs;
           this.fpsMeter.tick(nowMs);
           for (const listener of this.frameListeners) listener(frame, this.fpsMeter.fps);
         }

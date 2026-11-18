@@ -120,8 +120,8 @@ export class CameraPanel {
         break;
       default:
         this.status.textContent = STATUS_TEXT[status.state];
-        this.button.textContent = "Starting…";
-        this.button.disabled = true;
+        this.button.textContent = "Cancel";
+        this.button.disabled = false;
     }
   }
 

@@ -28,14 +28,21 @@ export interface SceneLike {
 export interface Layout {
   stage: HTMLElement;
   dock: HTMLElement;
+  docsButton: HTMLButtonElement;
 }
 
 export function createLayout(root: HTMLElement): Layout {
   root.innerHTML = `
     <div class="qv-app">
       <header class="qv-header">
-        <h1 class="qv-title">QuantVision</h1>
-        <p class="qv-subtitle">One qubit on the Bloch sphere</p>
+        <div>
+          <h1 class="qv-title">QuantVision</h1>
+          <p class="qv-subtitle">One qubit on the Bloch sphere</p>
+        </div>
+        <nav class="qv-nav" aria-label="Site">
+          <a class="qv-btn qv-nav__link" href="#/">Home</a>
+          <button class="qv-btn qv-nav__docs" type="button" aria-haspopup="dialog">Docs</button>
+        </nav>
       </header>
       <main class="qv-stage"></main>
       <aside class="qv-dock" aria-label="State and controls"></aside>
@@ -43,8 +50,9 @@ export function createLayout(root: HTMLElement): Layout {
     </div>`;
   const stage = root.querySelector<HTMLElement>(".qv-stage");
   const dock = root.querySelector<HTMLElement>(".qv-dock");
-  if (!stage || !dock) throw new Error("layout failed to render");
-  return { stage, dock };
+  const docsButton = root.querySelector<HTMLButtonElement>(".qv-nav__docs");
+  if (!stage || !dock || !docsButton) throw new Error("layout failed to render");
+  return { stage, dock, docsButton };
 }
 
 /** What the rest of the app (gestures, tests) can do to the running UI. */
@@ -54,6 +62,8 @@ export interface AppHandle {
   getAngles: () => { theta: number; phi: number };
   /** Move the state to these angles, exactly as if the sliders had been dragged there. */
   steer: (theta: number, phi: number) => void;
+  /** Stop timers so the page can be left (used by the router). */
+  dispose: () => void;
   /** The Bloch vector on screen right now (shorter than 1 once noise has acted). */
   getShownBloch: () => Vec3;
   /** Collapse the state like the Measure button; `source` (e.g. "open palm") is shown after the result. */
@@ -147,6 +157,11 @@ export function startApp(dock: HTMLElement, scene: SceneLike): AppHandle {
     },
     steer: (theta, phi) =>
       apply(stateFromAngles(theta, phi), { note: "Steering with your hand", phi }),
+    dispose: () => {
+      clearTimeout(checkTimer);
+      checkId++;
+      noise.rewind();
+    },
     getShownBloch: shownBloch,
     measureNow: (source) => collapse(source),
   };

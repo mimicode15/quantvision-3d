@@ -17,9 +17,9 @@ Updated after Day 6. Tick items off as they are verified, not as they are writte
 
 ## 2. Still to build (roadmap)
 
-- [ ] **Day 7: Hardware Reality Check.** T1/T2 sliders, evolve the density matrix, shrink the needle as purity drops, purity readout. Decide whether the browser computes the closed form itself (works offline) and the API is only used for cross-checks.
-- [ ] **Day 8: Landing page and docs drawer.** Michroma headers, what a qubit is, why noise matters, gesture guide, open-source links.
-- [ ] **Day 9: Performance and error handling.** Hold 60 fps with tracking on; camera-denied, no-camera, no-WebGL and model-missing paths all leave a usable app.
+- [x] **Day 7: Hardware Reality Check.** T1/T2 sliders, evolve the density matrix, shrink the needle as purity drops, purity readout. Decide whether the browser computes the closed form itself (works offline) and the API is only used for cross-checks.
+- [x] **Day 8: Landing page and docs drawer.** Michroma headers, what a qubit is, why noise matters, gesture guide, open-source links.
+- [x] **Day 9: Performance and error handling.** Hold 60 fps with tracking on; camera-denied, no-camera, no-WebGL and model-missing paths all leave a usable app.
 - [ ] **Day 10: Deploy and document.** Static frontend host, containerised backend, README with setup, math references and a demo GIF.
 - [ ] Background particle dust (Three.js) from the visual spec. Not started.
 
